@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>2026 Campaign Materials | Delivery & Dispatch Monitoring</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- PapaParse for robust CSV handling -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+              800: '#0c4a6e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Mobile-first scrolling & touch styles */
+    ::-webkit-scrollbar {
+      height: 6px;
+      width: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .tap-highlight-transparent {
+      -webkit-tap-highlight-color: transparent;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased font-sans min-h-screen flex flex-col selection:bg-blue-100 selection:text-blue-900">
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <!-- Brand Title & Icon -->
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/25">
+            <i data-lucide="truck" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">Delivery & Dispatch</h1>
+              <span id="storageBadge" class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <i data-lucide="database" class="w-2.5 h-2.5 mr-1"></i> Auto-Saved
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 font-medium hidden sm:block">2026 Campaign Materials Monitoring System</p>
+          </div>
+        </div>
+
+        <!-- Top Right Actions -->
+        <div class="flex items-center space-x-2">
+          <!-- Add Item Button -->
+          <button onclick="openEditModal(null)" class="inline-flex items-center px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-xs shadow-blue-500/20 transition active:scale-95">
+            <i data-lucide="plus" class="w-4 h-4 sm:mr-1.5"></i>
+            <span class="hidden sm:inline">Add Item</span>
+          </button>
+
+          <!-- Import CSV -->
+          <label class="cursor-pointer inline-flex items-center px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+            <i data-lucide="upload" class="w-4 h-4 sm:mr-1.5"></i>
+            <span class="hidden sm:inline">Import</span>
+            <input type="file" id="csvFileInput" accept=".csv" class="hidden" />
+          </label>
+
+          <!-- Export CSV -->
+          <button onclick="exportData()" class="inline-flex items-center px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition">
+            <i data-lucide="download" class="w-4 h-4 sm:mr-1.5"></i>
+            <span class="hidden sm:inline">Export</span>
+          </button>
+
+          <!-- Reset / More Menu dropdown button -->
+          <div class="relative inline-block text-left">
+            <button onclick="toggleActionMenu()" id="menuBtn" class="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition">
+              <i data-lucide="more-vertical" class="w-4 h-4"></i>
+            </button>
+            <div id="actionDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 z-50 text-xs">
+              <button onclick="resetToDefaultData()" class="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 flex items-center space-x-2">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                <span>Reset to Default CSV</span>
+              </button>
+              <button onclick="window.print()" class="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 flex items-center space-x-2">
+                <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                <span>Print Report</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-6">
+
+    <!-- KPI Summary Cards (Mobile 2-col, Desktop 4-col) -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+      <!-- Delivered KPI -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Delivered</span>
+          <span class="p-2 bg-blue-50 text-blue-600 rounded-xl"><i data-lucide="package-check" class="w-4 h-4"></i></span>
+        </div>
+        <div class="mt-3">
+          <div id="statTotalDelivered" class="text-xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">0</div>
+          <p class="text-xs text-slate-500 mt-1">From Suppliers</p>
+        </div>
+      </div>
+
+      <!-- Dispatched KPI -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Dispatched</span>
+          <span class="p-2 bg-indigo-50 text-indigo-600 rounded-xl"><i data-lucide="send" class="w-4 h-4"></i></span>
+        </div>
+        <div class="mt-3">
+          <div id="statTotalDispatched" class="text-xl sm:text-3xl font-extrabold text-indigo-600 tracking-tight">0</div>
+          <p id="statFulfillmentRate" class="text-xs text-emerald-600 font-semibold mt-1">0% Fulfilled</p>
+        </div>
+      </div>
+
+      <!-- Buffer / On Hand KPI -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Buffer / On Hand</span>
+          <span class="p-2 bg-amber-50 text-amber-600 rounded-xl"><i data-lucide="archive" class="w-4 h-4"></i></span>
+        </div>
+        <div class="mt-3">
+          <div id="statTotalBuffer" class="text-xl sm:text-3xl font-extrabold text-amber-600 tracking-tight">0</div>
+          <p class="text-xs text-slate-500 mt-1">Unallocated stock</p>
+        </div>
+      </div>
+
+      <!-- Campaign SKUs KPI -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Campaign SKUs</span>
+          <span class="p-2 bg-purple-50 text-purple-600 rounded-xl"><i data-lucide="layers" class="w-4 h-4"></i></span>
+        </div>
+        <div class="mt-3">
+          <div id="statTotalRecords" class="text-xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">0</div>
+          <p id="statActiveCycles" class="text-xs text-slate-500 mt-1">Active tracked items</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Analytics Charts (Collapsible on mobile) -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <!-- Article Distribution Bar Chart -->
+      <div class="lg:col-span-2 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-slate-900">Materials Allocation (Top Volume)</h3>
+            <p class="text-xs text-slate-500">Dispatched units vs remaining Buffer stock</p>
+          </div>
+          <span class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-medium">Auto-Updates</span>
+        </div>
+        <div class="h-60 sm:h-64 w-full">
+          <canvas id="materialsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Fulfillment Doughnut Chart -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm sm:text-base font-bold text-slate-900">Dispatch Progress</h3>
+          <span class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">Live</span>
+        </div>
+        <div class="h-48 sm:h-56 flex items-center justify-center relative">
+          <canvas id="fulfillmentDoughnutChart"></canvas>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-center text-xs mt-2 pt-2 border-t border-slate-100">
+          <div>
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 mr-1.5"></span>
+            <span class="text-slate-500">Dispatched</span>
+          </div>
+          <div>
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-400 mr-1.5"></span>
+            <span class="text-slate-500">Buffer Stock</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cycle Filter Pills (Touch-friendly & swipeable on mobile) -->
+    <section class="overflow-x-auto pb-1 no-scrollbar">
+      <div id="cyclePills" class="flex items-center space-x-2 min-w-max">
+        <!-- Dynamically rendered pills -->
+      </div>
+    </section>
+
+    <!-- Filter & Table Controls Container -->
+    <section class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      <!-- Search & Select Filters -->
+      <div class="p-4 border-b border-slate-200 space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
+        <!-- Search Input -->
+        <div class="relative flex-1">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="Search campaign, article, or remarks (e.g. Coke, Purefoods, LED)..." 
+            class="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+          />
+        </div>
+
+        <!-- Filter Dropdowns -->
+        <div class="flex items-center space-x-2">
+          <!-- Article Filter -->
+          <select id="articleFilter" class="text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">All Articles</option>
+          </select>
+
+          <!-- Status Filter -->
+          <select id="statusFilter" class="text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">All Status</option>
+            <option value="complete">100% Dispatched</option>
+            <option value="partial">Partial Dispatch</option>
+            <option value="pending">0% Dispatched</option>
+          </select>
+
+          <!-- Reset Filter Button -->
+          <button onclick="resetFilters()" title="Reset Filters" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition">
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Filter Info Header -->
+      <div class="px-4 py-2 bg-slate-50/70 border-b border-slate-200/60 flex items-center justify-between text-xs text-slate-500 font-medium">
+        <span>Showing <span id="filteredCount" class="font-bold text-slate-800">0</span> of <span id="totalCount" class="font-bold text-slate-800">0</span> campaign records</span>
+        <span id="filteredSum" class="text-slate-600 font-semibold hidden sm:inline"></span>
+      </div>
+
+      <!-- Laptop & Tablet Table View (Hidden on mobile) -->
+      <div class="hidden md:block overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-700 divide-y divide-slate-200">
+          <thead class="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <tr>
+              <th scope="col" class="py-3 px-4">Cycle</th>
+              <th scope="col" class="py-3 px-4 cursor-pointer hover:text-slate-800" onclick="sortTable('Campaign')">
+                <div class="flex items-center space-x-1">
+                  <span>Campaign</span>
+                  <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-slate-400"></i>
+                </div>
+              </th>
+              <th scope="col" class="py-3 px-4">Article</th>
+              <th scope="col" class="py-3 px-4 text-right cursor-pointer hover:text-slate-800" onclick="sortTable('Delivered')">
+                <div class="flex items-center justify-end space-x-1">
+                  <span>Delivered</span>
+                  <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-slate-400"></i>
+                </div>
+              </th>
+              <th scope="col" class="py-3 px-4 text-right cursor-pointer hover:text-slate-800" onclick="sortTable('Dispatched')">
+                <div class="flex items-center justify-end space-x-1">
+                  <span>Dispatched</span>
+                  <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-slate-400"></i>
+                </div>
+              </th>
+              <th scope="col" class="py-3 px-4 text-right cursor-pointer hover:text-slate-800" onclick="sortTable('Buffer')">
+                <div class="flex items-center justify-end space-x-1">
+                  <span>Buffer</span>
+                  <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-slate-400"></i>
+                </div>
+              </th>
+              <th scope="col" class="py-3 px-4 text-center">Fulfillment</th>
+              <th scope="col" class="py-3 px-4">Remarks</th>
+              <th scope="col" class="py-3 px-4 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-slate-100 bg-white font-normal">
+            <!-- Rendered dynamically -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile List / Card View (< 768px) -->
+      <div id="mobileCardList" class="md:hidden divide-y divide-slate-100 p-2 space-y-2">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="hidden py-12 text-center">
+        <i data-lucide="inbox" class="w-12 h-12 mx-auto text-slate-300 mb-2"></i>
+        <p class="text-sm font-semibold text-slate-700">No matching campaign items</p>
+        <p class="text-xs text-slate-400 mt-1">Try clearing your filters or create a new campaign item</p>
+        <button onclick="openEditModal(null)" class="mt-3 px-4 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+          Add New Item
+        </button>
+      </div>
+
+      <!-- Pagination Footer -->
+      <div class="px-4 py-3 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between text-xs">
+        <div class="flex items-center space-x-2">
+          <span>Items:</span>
+          <select id="pageSizeSelect" onchange="changePageSize(this.value)" class="bg-white border border-slate-200 rounded px-2 py-1 text-xs">
+            <option value="15">15</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button id="prevBtn" onclick="prevPage()" class="p-1.5 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+          </button>
+          <span id="pageIndicator" class="font-medium text-slate-600">Page 1 of 1</span>
+          <button id="nextBtn" onclick="nextPage()" class="p-1.5 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- IMPORTANT AREA EDIT / ADD MODAL -->
+  <div id="editModal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 my-8 transform transition-all">
+      <!-- Modal Header -->
+      <div class="flex items-start justify-between border-b border-slate-100 pb-3">
+        <div>
+          <h3 id="modalTitle" class="text-lg font-bold text-slate-900">Edit Campaign Item</h3>
+          <p class="text-xs text-slate-500">Edit critical quantities and dispatch details directly</p>
+        </div>
+        <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Form Content -->
+      <form id="editItemForm" onsubmit="saveItemForm(event)" class="space-y-4">
+        <input type="hidden" id="editItemId" />
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Cycle -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Cycle / Phase *</label>
+            <input 
+              type="text" 
+              id="fieldCycle" 
+              required 
+              placeholder="e.g., 22, New, Refresh, Buffer" 
+              class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" 
+            />
+          </div>
+
+          <!-- Article -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Article Type *</label>
+            <input 
+              type="text" 
+              id="fieldArticle" 
+              required 
+              placeholder="e.g., Stopper, Strips, LED, Arch" 
+              list="articleDataList"
+              class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" 
+            />
+            <datalist id="articleDataList"></datalist>
+          </div>
+        </div>
+
+        <!-- Campaign Name -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Campaign Name *</label>
+          <input 
+            type="text" 
+            id="fieldCampaign" 
+            required 
+            placeholder="e.g., Purefoods Nuggets, Coke Dual, Dove Serum" 
+            class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" 
+          />
+        </div>
+
+        <!-- Numbers Area: Delivered, Dispatched, Buffer -->
+        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">Quantities</span>
+            <!-- Auto Calculate Checkbox -->
+            <label class="flex items-center space-x-1.5 cursor-pointer text-xs text-blue-600 font-semibold select-none">
+              <input type="checkbox" id="autoCalcBuffer" checked onchange="handleAutoCalcToggle()" class="rounded text-blue-600 focus:ring-blue-500" />
+              <span>Auto Buffer (Delivered - Dispatched)</span>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <!-- Delivered -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Delivered</label>
+              <input 
+                type="number" 
+                id="fieldDelivered" 
+                min="0" 
+                required 
+                oninput="handleQuantityChange()" 
+                class="w-full px-2.5 py-2 text-sm font-semibold bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+              />
+            </div>
+
+            <!-- Dispatched -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Dispatched</label>
+              <input 
+                type="number" 
+                id="fieldDispatched" 
+                min="0" 
+                required 
+                oninput="handleQuantityChange()" 
+                class="w-full px-2.5 py-2 text-sm font-semibold text-indigo-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+              />
+            </div>
+
+            <!-- Buffer -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Buffer / On Hand</label>
+              <input 
+                type="number" 
+                id="fieldBuffer" 
+                min="0" 
+                required 
+                class="w-full px-2.5 py-2 text-sm font-semibold text-amber-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Remarks -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Remarks / Dispatch Notes</label>
+          <textarea 
+            id="fieldRemarks" 
+            rows="2" 
+            placeholder="Distribution details (e.g., Cebu split, Erick 3, Buffer New Delivery)..." 
+            class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          ></textarea>
+        </div>
+
+        <!-- Modal Actions -->
+        <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+          <button 
+            type="button" 
+            id="btnDeleteInModal" 
+            onclick="deleteItemFromModal()" 
+            class="hidden px-3.5 py-2 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition"
+          >
+            Delete Item
+          </button>
+          <div class="flex items-center space-x-2 ml-auto">
+            <button 
+              type="button" 
+              onclick="closeEditModal()" 
+              class="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              class="px-5 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 shadow-md shadow-blue-500/20 transition active:scale-95"
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- DELETE CONFIRMATION MODAL (Replaces window.confirm) -->
+  <div id="deleteModal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+      <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+      </div>
+      <div class="text-center">
+        <h3 class="text-base font-bold text-slate-900">Delete Campaign Item?</h3>
+        <p id="deleteModalMsg" class="text-xs text-slate-500 mt-1">This action cannot be undone.</p>
+      </div>
+      <div class="flex space-x-2 pt-2">
+        <button onclick="closeDeleteModal()" class="flex-1 py-2 text-xs font-bold bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition">
+          Cancel
+        </button>
+        <button id="confirmDeleteBtn" class="flex-1 py-2 text-xs font-bold bg-rose-600 text-white rounded-xl hover:bg-rose-700 shadow-sm transition">
+          Yes, Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client Application Logic -->
+  <script>
+    // Storage Key
+    const STORAGE_KEY = 'CAMPAIGN_MONITORING_DATA_V2';
+
+    // Default Seed Dataset (Exact records from Delivery & Dispatch Monitoring)
+    const DEFAULT_DATASET = [
+      {"id":"d1","cycle":"17","campaign":"Enfagrow","article":"LED","delivered":16,"dispatched":10,"buffer":6,"remarks":""},
+      {"id":"d2","cycle":"17","campaign":"Nissin","article":"LED","delivered":3,"dispatched":1,"buffer":2,"remarks":""},
+      {"id":"d3","cycle":"17","campaign":"Domex","article":"LED","delivered":3,"dispatched":3,"buffer":0,"remarks":""},
+      {"id":"d4","cycle":"18","campaign":"Purefoods Star Burger","article":"Stopper","delivered":60,"dispatched":49,"buffer":11,"remarks":""},
+      {"id":"d5","cycle":"18","campaign":"Purefoods Nuggets","article":"Stopper","delivered":60,"dispatched":50,"buffer":10,"remarks":"2 20x60 w/ , 3 22x60 , 4 20x40 w/ , 1 20x40 w/o"},
+      {"id":"d6","cycle":"18","campaign":"Purefoods Nuggets","article":"LED","delivered":3,"dispatched":2,"buffer":1,"remarks":""},
+      {"id":"d7","cycle":"18","campaign":"Dove","article":"Halfmoon","delivered":26,"dispatched":23,"buffer":3,"remarks":""},
+      {"id":"d8","cycle":"18","campaign":"Dove Serum","article":"Actual Product","delivered":70,"dispatched":54,"buffer":16,"remarks":""},
+      {"id":"d9","cycle":"18","campaign":"Alaska","article":"LED","delivered":4,"dispatched":2,"buffer":2,"remarks":""},
+      {"id":"d10","cycle":"18","campaign":"Mr. Muscle","article":"Stopper","delivered":28,"dispatched":27,"buffer":1,"remarks":""},
+      {"id":"d11","cycle":"18","campaign":"Mr. Muscle","article":"Strips","delivered":250,"dispatched":250,"buffer":0,"remarks":""},
+      {"id":"d12","cycle":"18","campaign":"Hunts","article":"Stopper","delivered":45,"dispatched":41,"buffer":4,"remarks":""},
+      {"id":"d13","cycle":"18","campaign":"GT Premium Roast","article":"LED","delivered":3,"dispatched":2,"buffer":1,"remarks":""},
+      {"id":"d14","cycle":"18","campaign":"Knorr Sinigang Mix","article":"LED","delivered":3,"dispatched":3,"buffer":0,"remarks":""},
+      {"id":"d15","cycle":"18","campaign":"Ladys Choice","article":"LED","delivered":3,"dispatched":3,"buffer":0,"remarks":""},
+      {"id":"d16","cycle":"19","campaign":"Danes","article":"Stopper","delivered":55,"dispatched":50,"buffer":5,"remarks":""},
+      {"id":"d17","cycle":"19","campaign":"Danes","article":"Product Display","delivered":55,"dispatched":50,"buffer":5,"remarks":""},
+      {"id":"d18","cycle":"19","campaign":"Doowee","article":"Strips","delivered":1254,"dispatched":1140,"buffer":114,"remarks":""},
+      {"id":"d19","cycle":"19","campaign":"Del Monte","article":"Product Display","delivered":32,"dispatched":26,"buffer":6,"remarks":""},
+      {"id":"d20","cycle":"19","campaign":"Chingu","article":"Stopper","delivered":90,"dispatched":84,"buffer":6,"remarks":""},
+      {"id":"d21","cycle":"19","campaign":"Real Mayo Pork & Tofu","article":"Product Display","delivered":80,"dispatched":68,"buffer":12,"remarks":""},
+      {"id":"d22","cycle":"19","campaign":"Vitasoy","article":"LED","delivered":3,"dispatched":3,"buffer":0,"remarks":""},
+      {"id":"d23","cycle":"19","campaign":"Buzz","article":"Product Display","delivered":17,"dispatched":10,"buffer":7,"remarks":""},
+      {"id":"d24","cycle":"19","campaign":"Buzz","article":"Stopper","delivered":60,"dispatched":54,"buffer":6,"remarks":""},
+      {"id":"d25","cycle":"20","campaign":"Nivea","article":"Product Display","delivered":45,"dispatched":40,"buffer":5,"remarks":""},
+      {"id":"d26","cycle":"20","campaign":"Nivea Body","article":"Stopper","delivered":72,"dispatched":62,"buffer":10,"remarks":""},
+      {"id":"d27","cycle":"20","campaign":"LM Mami","article":"Stopper","delivered":144,"dispatched":120,"buffer":24,"remarks":""},
+      {"id":"d28","cycle":"20","campaign":"Axe Deo","article":"Topshelf","delivered":33,"dispatched":28,"buffer":5,"remarks":""},
+      {"id":"d29","cycle":"20","campaign":"Sunsilk","article":"Topshelf","delivered":40,"dispatched":33,"buffer":7,"remarks":""},
+      {"id":"d30","cycle":"21","campaign":"Ladys Choice Pork","article":"Stopper","delivered":26,"dispatched":2,"buffer":24,"remarks":""},
+      {"id":"d31","cycle":"21","campaign":"Ladys Choice Tofu","article":"Stopper","delivered":36,"dispatched":33,"buffer":3,"remarks":""},
+      {"id":"d32","cycle":"21","campaign":"CDO Nuggets","article":"Stopper 20x40 w/","delivered":12,"dispatched":10,"buffer":2,"remarks":""},
+      {"id":"d33","cycle":"21","campaign":"CDO Nuggets","article":"Stopper 20x40 w/o","delivered":26,"dispatched":23,"buffer":3,"remarks":""},
+      {"id":"d34","cycle":"21","campaign":"CDO Nuggets","article":"Stopper 20x60 w/ ear","delivered":52,"dispatched":49,"buffer":3,"remarks":""},
+      {"id":"d35","cycle":"21","campaign":"Lemon Square Wonder Donut","article":"Stopper","delivered":374,"dispatched":338,"buffer":36,"remarks":""},
+      {"id":"d36","cycle":"21","campaign":"Angel Kremdensada","article":"LED","delivered":3,"dispatched":3,"buffer":0,"remarks":""},
+      {"id":"d37","cycle":"21","campaign":"Angel All Purpose","article":"Arch","delivered":10,"dispatched":0,"buffer":10,"remarks":""},
+      {"id":"d38","cycle":"21","campaign":"Angel All Purpose","article":"Frame","delivered":10,"dispatched":0,"buffer":10,"remarks":""},
+      {"id":"d39","cycle":"21","campaign":"Angel Kremdensada","article":"Stopper","delivered":438,"dispatched":283,"buffer":155,"remarks":""},
+      {"id":"d40","cycle":"21","campaign":"Dutchmill","article":"Stopper","delivered":190,"dispatched":119,"buffer":71,"remarks":""},
+      {"id":"d41","cycle":"21","campaign":"CreamSilk Treatment","article":"Product Display","delivered":58,"dispatched":38,"buffer":20,"remarks":""},
+      {"id":"d42","cycle":"21","campaign":"Dutchmill","article":"Strips","delivered":2900,"dispatched":2088,"buffer":812,"remarks":""},
+      {"id":"d43","cycle":"21","campaign":"Angel Kremdensada","article":"Product Display","delivered":53,"dispatched":33,"buffer":20,"remarks":""},
+      {"id":"d44","cycle":"21","campaign":"GT New","article":"Product Display","delivered":66,"dispatched":23,"buffer":43,"remarks":""},
+      {"id":"d45","cycle":"21","campaign":"Angel All Purpose","article":"Stopper","delivered":43,"dispatched":34,"buffer":9,"remarks":""},
+      {"id":"d46","cycle":"22","campaign":"Knorr Oyster Sauce","article":"Stopper","delivered":60,"dispatched":40,"buffer":20,"remarks":""},
+      {"id":"d47","cycle":"22","campaign":"Coke Dual","article":"Stopper","delivered":291,"dispatched":0,"buffer":291,"remarks":""},
+      {"id":"d48","cycle":"22","campaign":"Coke Dual","article":"Strips","delivered":12075,"dispatched":11725,"buffer":350,"remarks":""},
+      {"id":"d49","cycle":"22","campaign":"Dove Deo Dry Serum","article":"Topshelf","delivered":31,"dispatched":0,"buffer":31,"remarks":""},
+      {"id":"d50","cycle":"22","campaign":"Royal Halloween","article":"Stopper","delivered":285,"dispatched":175,"buffer":110,"remarks":""},
+      {"id":"d51","cycle":"22","campaign":"PLM (Heart)","article":"LED","delivered":2,"dispatched":2,"buffer":0,"remarks":""},
+      {"id":"d52","cycle":"22","campaign":"TJ Hotdog","article":"Stopper 22x60","delivered":23,"dispatched":19,"buffer":4,"remarks":""},
+      {"id":"d53","cycle":"22","campaign":"TJ Hotdog","article":"Stopper 20x40 w/","delivered":37,"dispatched":24,"buffer":13,"remarks":""},
+      {"id":"d54","cycle":"22","campaign":"TJ Hotdog","article":"Stopper 20x40 w/o","delivered":57,"dispatched":51,"buffer":6,"remarks":""},
+      {"id":"d55","cycle":"22","campaign":"BBAP","article":"Strips","delivered":1320,"dispatched":408,"buffer":912,"remarks":""},
+      {"id":"d56","cycle":"22","campaign":"Nan Kid","article":"Stopper","delivered":23,"dispatched":19,"buffer":4,"remarks":""},
+      {"id":"d57","cycle":"22","campaign":"Knorr Oyster Sauce","article":"Arch","delivered":26,"dispatched":0,"buffer":26,"remarks":""},
+      {"id":"d58","cycle":"New","campaign":"LMPC","article":"LED","delivered":3,"dispatched":0,"buffer":3,"remarks":""},
+      {"id":"d59","cycle":"New","campaign":"PF Silog","article":"Frame","delivered":1,"dispatched":1,"buffer":0,"remarks":""},
+      {"id":"d60","cycle":"New","campaign":"Nescafe","article":"Arch","delivered":3,"dispatched":0,"buffer":3,"remarks":""},
+      {"id":"d61","cycle":"New","campaign":"LMPC Spark","article":"Stopper","delivered":135,"dispatched":61,"buffer":74,"remarks":""},
+      {"id":"d62","cycle":"New","campaign":"LMPC","article":"Frame","delivered":15,"dispatched":0,"buffer":15,"remarks":""},
+      {"id":"d63","cycle":"New","campaign":"Close Up","article":"Product Display","delivered":2,"dispatched":0,"buffer":2,"remarks":""},
+      {"id":"d64","cycle":"New","campaign":"Flavored Mayo","article":"Product Display","delivered":4,"dispatched":0,"buffer":4,"remarks":""},
+      {"id":"d65","cycle":"New","campaign":"Dove Deo","article":"Product Display","delivered":6,"dispatched":0,"buffer":6,"remarks":""},
+      {"id":"d66","cycle":"New","campaign":"BBPMD","article":"Frame","delivered":1,"dispatched":0,"buffer":1,"remarks":""},
+      {"id":"d67","cycle":"New","campaign":"LMPC","article":"Header Support","delivered":10,"dispatched":0,"buffer":10,"remarks":""},
+      {"id":"d68","cycle":"New","campaign":"Dona Elena","article":"Stopper","delivered":22,"dispatched":10,"buffer":12,"remarks":""},
+      {"id":"d69","cycle":"New","campaign":"Dona Elena","article":"Counter Top","delivered":17,"dispatched":6,"buffer":11,"remarks":""},
+      {"id":"d70","cycle":"New","campaign":"Dona Elena","article":"Product Display","delivered":17,"dispatched":6,"buffer":11,"remarks":""},
+      {"id":"d71","cycle":"New","campaign":"Alaska Christmas","article":"Stopper","delivered":200,"dispatched":150,"buffer":50,"remarks":""},
+      {"id":"d72","cycle":"New","campaign":"Alaska Christmas","article":"Strips","delivered":4674,"dispatched":3900,"buffer":774,"remarks":""},
+      {"id":"d73","cycle":"Refresh","campaign":"Surf","article":"Strips","delivered":359,"dispatched":197,"buffer":162,"remarks":"Buffer (New Delivery)"},
+      {"id":"d74","cycle":"Refresh","campaign":"Surf","article":"Stopper","delivered":4,"dispatched":2,"buffer":2,"remarks":"Buffer (New Delivery)"},
+      {"id":"d75","cycle":"Refresh","campaign":"Star Nutri Meats Corned Beef","article":"Stopper","delivered":95,"dispatched":58,"buffer":37,"remarks":""},
+      {"id":"d76","cycle":"Buffer","campaign":"Angel Evap","article":"Product Display","delivered":65,"dispatched":65,"buffer":0,"remarks":""},
+      {"id":"d77","cycle":"Buffer","campaign":"Baygon","article":"Product Display","delivered":43,"dispatched":42,"buffer":1,"remarks":""},
+      {"id":"d78","cycle":"Buffer","campaign":"Alaska Condensed","article":"Stopper","delivered":103,"dispatched":97,"buffer":6,"remarks":""},
+      {"id":"d79","cycle":"Buffer","campaign":"Alaska Evap","article":"Stopper","delivered":103,"dispatched":93,"buffer":10,"remarks":""},
+      {"id":"d80","cycle":"Buffer","campaign":"Alaska Fruitti","article":"Strips","delivered":10,"dispatched":0,"buffer":10,"remarks":""},
+      {"id":"d81","cycle":"Buffer","campaign":"Alaska Yummier","article":"Strips","delivered":356,"dispatched":0,"buffer":356,"remarks":""},
+      {"id":"d82","cycle":"Buffer","campaign":"Axe Deo","article":"Strips","delivered":253,"dispatched":60,"buffer":193,"remarks":""},
+      {"id":"d83","cycle":"Buffer","campaign":"Barn","article":"Stopper 20x40 w/","delivered":20,"dispatched":9,"buffer":11,"remarks":""},
+      {"id":"d84","cycle":"Buffer","campaign":"Barn","article":"Stopper 20x40 w/o","delivered":61,"dispatched":60,"buffer":1,"remarks":""},
+      {"id":"d85","cycle":"Buffer","campaign":"BBPMD Completibay","article":"Strips","delivered":218,"dispatched":0,"buffer":218,"remarks":""},
+      {"id":"d86","cycle":"Buffer","campaign":"BBPMD Immunity","article":"Strips","delivered":209,"dispatched":0,"buffer":209,"remarks":""},
+      {"id":"d87","cycle":"Buffer","campaign":"Bluebay","article":"Strips","delivered":111,"dispatched":0,"buffer":111,"remarks":""},
+      {"id":"d88","cycle":"Buffer","campaign":"Breeze","article":"Strips","delivered":220,"dispatched":0,"buffer":220,"remarks":""},
+      {"id":"d89","cycle":"Buffer","campaign":"Breeze Pouches","article":"Strips","delivered":77,"dispatched":0,"buffer":77,"remarks":""},
+      {"id":"d90","cycle":"Buffer","campaign":"Cadbury Milk","article":"Strips","delivered":20,"dispatched":0,"buffer":20,"remarks":""},
+      {"id":"d91","cycle":"Buffer","campaign":"Celeteque","article":"Strips","delivered":121,"dispatched":0,"buffer":121,"remarks":""},
+      {"id":"d92","cycle":"Buffer","campaign":"Cerelac","article":"Stopper","delivered":1,"dispatched":0,"buffer":1,"remarks":""},
+      {"id":"d93","cycle":"Buffer","campaign":"Cerelac","article":"Strips","delivered":68,"dispatched":0,"buffer":68,"remarks":""},
+      {"id":"d94","cycle":"Buffer","campaign":"Clear","article":"Strips","delivered":155,"dispatched":0,"buffer":155,"remarks":""},
+      {"id":"d95","cycle":"Buffer","campaign":"Coke","article":"Product Display","delivered":15,"dispatched":15,"buffer":0,"remarks":""},
+      {"id":"d96","cycle":"Buffer","campaign":"Coke V Time (Popout)","article":"Stopper","delivered":145,"dispatched":0,"buffer":145,"remarks":""},
+      {"id":"d97","cycle":"Buffer","campaign":"Dove Deo Dry Serum","article":"Strips","delivered":350,"dispatched":0,"buffer":350,"remarks":""},
+      {"id":"d98","cycle":"Buffer","campaign":"Downy","article":"Product Display","delivered":65,"dispatched":65,"buffer":0,"remarks":""},
+      {"id":"d99","cycle":"Buffer","campaign":"Garnier","article":"Strips","delivered":58,"dispatched":0,"buffer":58,"remarks":""},
+      {"id":"d100","cycle":"22","campaign":"Minions","article":"Stopper 20x40 w/","delivered":4,"dispatched":0,"buffer":4,"remarks":"Luzon c/o Erick 3"},
+      {"id":"d101","cycle":"22","campaign":"Minions","article":"Stopper","delivered":2,"dispatched":0,"buffer":2,"remarks":"Cebu"},
+      {"id":"d102","cycle":"Buffer","campaign":"Modess","article":"Strips","delivered":305,"dispatched":0,"buffer":305,"remarks":""},
+      {"id":"d103","cycle":"Buffer","campaign":"Nissin Cup Noodles","article":"Product Display","delivered":50,"dispatched":50,"buffer":0,"remarks":""},
+      {"id":"d104","cycle":"Buffer","campaign":"Nissin Yakisoba","article":"Product Display","delivered":50,"dispatched":50,"buffer":0,"remarks":""},
+      {"id":"d105","cycle":"Buffer","campaign":"Rexona Deo Lotion","article":"Strips","delivered":250,"dispatched":0,"buffer":250,"remarks":""},
+      {"id":"d106","cycle":"Buffer","campaign":"Safeguard","article":"Product Display","delivered":65,"dispatched":65,"buffer":0,"remarks":""},
+      {"id":"d107","cycle":"Buffer","campaign":"Whisper","article":"Product Display","delivered":65,"dispatched":65,"buffer":0,"remarks":""}
+    ];
+
+    // Reactive State
+    let campaignData = [];
+    let selectedCycle = "ALL";
+    let searchQuery = "";
+    let selectedArticle = "";
+    let selectedStatus = "";
+    let sortColumn = "Campaign";
+    let sortDirection = "asc";
+    let currentPage = 1;
+    let pageSize = 25;
+    let deleteTargetId = null;
+
+    let materialsChartInstance = null;
+    let doughnutChartInstance = null;
+
+    // Initialize application
+    window.addEventListener('DOMContentLoaded', () => {
+      loadInitialData();
+      lucide.createIcons();
+      updateArticleDropdowns();
+      renderCyclePills();
+      updateDashboard();
+      initCSVUploader();
+      initKeyboardEscape();
+    });
+
+    // Load from LocalStorage or Seed Dataset
+    function loadInitialData() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        try {
+          campaignData = JSON.parse(stored);
+        } catch (e) {
+          console.error("Failed to parse stored data", e);
+          campaignData = [...DEFAULT_DATASET];
+        }
+      } else {
+        campaignData = [...DEFAULT_DATASET];
+        saveDataLocally();
+      }
+    }
+
+    // Save to LocalStorage
+    function saveDataLocally() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(campaignData));
+      showToast('Data saved successfully', 'success');
+    }
+
+    // Toast UI helper (replaces alerts)
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      
+      let bg = 'bg-slate-900 text-white';
+      let icon = 'check-circle';
+      if (type === 'success') {
+        bg = 'bg-emerald-600 text-white';
+        icon = 'check';
+      } else if (type === 'danger') {
+        bg = 'bg-rose-600 text-white';
+        icon = 'trash-2';
+      }
+
+      toast.className = `${bg} px-4 py-2.5 rounded-xl text-xs font-semibold shadow-lg flex items-center space-x-2 transition-all transform duration-200 translate-y-2 opacity-0 pointer-events-auto`;
+      toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i><span>${message}</span>`;
+      
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 250);
+      }, 2500);
+    }
+
+    // Update Unique Article Datalist & Select Filter
+    function updateArticleDropdowns() {
+      const articles = [...new Set(campaignData.map(d => d.article).filter(Boolean))].sort();
+      const select = document.getElementById('articleFilter');
+      const datalist = document.getElementById('articleDataList');
+      
+      const currentSelected = select.value;
+      select.innerHTML = '<option value="">All Articles</option>';
+      datalist.innerHTML = '';
+
+      articles.forEach(art => {
+        // filter
+        const opt = document.createElement('option');
+        opt.value = art;
+        opt.textContent = art;
+        if (art === currentSelected) opt.selected = true;
+        select.appendChild(opt);
+
+        // datalist for form
+        const dlOpt = document.createElement('option');
+        dlOpt.value = art;
+        datalist.appendChild(dlOpt);
+      });
+    }
+
+    // Render Cycle Pills with counts
+    function renderCyclePills() {
+      const rawCycles = [...new Set(campaignData.map(d => d.cycle || 'Buffer'))];
+      const standardOrder = ['ALL', '17', '18', '19', '20', '21', '22', 'New', 'Refresh', 'Buffer'];
+      
+      // Combine predefined with any custom cycles created by the user
+      const uniqueCycles = ['ALL', ...new Set([...standardOrder.filter(c => c !== 'ALL'), ...rawCycles])];
+
+      const pillsContainer = document.getElementById('cyclePills');
+      pillsContainer.innerHTML = '';
+
+      uniqueCycles.forEach(cycle => {
+        const count = cycle === 'ALL'
+          ? campaignData.length
+          : campaignData.filter(d => (d.cycle || 'Buffer') === cycle).length;
+
+        if (count === 0 && cycle !== 'ALL') return; // hide empty dynamic cycles
+
+        const btn = document.createElement('button');
+        const isActive = selectedCycle === cycle;
+        btn.className = `px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition flex items-center space-x-1.5 tap-highlight-transparent ${
+          isActive 
+            ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30' 
+            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+        }`;
+
+        const label = cycle === 'ALL' ? 'All Cycles' : (isNaN(cycle) ? cycle : `Cycle ${cycle}`);
+        btn.innerHTML = `<span>${label}</span><span class="text-[10px] py-0.2 px-1.5 rounded-full ${isActive ? 'bg-blue-700/80 text-white' : 'bg-slate-100 text-slate-500'}">${count}</span>`;
+        btn.onclick = () => {
+          selectedCycle = cycle;
+          currentPage = 1;
+          renderCyclePills();
+          updateDashboard();
+        };
+        pillsContainer.appendChild(btn);
+      });
+    }
+
+    // Filter Logic
+    function getFilteredData() {
+      return campaignData.filter(item => {
+        const cycleMatch = selectedCycle === 'ALL' || (item.cycle || 'Buffer') === selectedCycle;
+        const articleMatch = !selectedArticle || item.article === selectedArticle;
+        
+        const q = searchQuery.toLowerCase().trim();
+        const searchMatch = !q || 
+          (item.campaign && item.campaign.toLowerCase().includes(q)) ||
+          (item.article && item.article.toLowerCase().includes(q)) ||
+          (item.remarks && item.remarks.toLowerCase().includes(q));
+
+        let statusMatch = true;
+        const delivered = item.delivered || 0;
+        const dispatched = item.dispatched || 0;
+
+        if (selectedStatus === 'complete') {
+          statusMatch = delivered > 0 && dispatched >= delivered;
+        } else if (selectedStatus === 'partial') {
+          statusMatch = dispatched > 0 && dispatched < delivered;
+        } else if (selectedStatus === 'pending') {
+          statusMatch = dispatched === 0;
+        }
+
+        return cycleMatch && articleMatch && searchMatch && statusMatch;
+      });
+    }
+
+    // Sorting Logic
+    function sortData(data) {
+      return [...data].sort((a, b) => {
+        let valA, valB;
+        if (sortColumn === 'Campaign') {
+          valA = (a.campaign || '').toLowerCase();
+          valB = (b.campaign || '').toLowerCase();
+        } else if (sortColumn === 'Delivered') {
+          valA = a.delivered || 0;
+          valB = b.delivered || 0;
+        } else if (sortColumn === 'Dispatched') {
+          valA = a.dispatched || 0;
+          valB = b.dispatched || 0;
+        } else if (sortColumn === 'Buffer') {
+          valA = a.buffer || 0;
+          valB = b.buffer || 0;
+        }
+
+        if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+        if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    function sortTable(col) {
+      if (sortColumn === col) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortColumn = col;
+        sortDirection = 'asc';
+      }
+      updateDashboard();
+    }
+
+    // Dashboard Recalculation & Render Loop
+    function updateDashboard() {
+      const filtered = getFilteredData();
+      const sorted = sortData(filtered);
+
+      // 1. Recalculate Metrics dynamically
+      const totalDelivered = filtered.reduce((acc, curr) => acc + (Number(curr.delivered) || 0), 0);
+      const totalDispatched = filtered.reduce((acc, curr) => acc + (Number(curr.dispatched) || 0), 0);
+      const totalBuffer = filtered.reduce((acc, curr) => acc + (Number(curr.buffer) || 0), 0);
+      const fulfillmentRate = totalDelivered > 0 ? ((totalDispatched / totalDelivered) * 100).toFixed(1) : 0;
+
+      // Update KPI DOM
+      document.getElementById('statTotalDelivered').innerText = totalDelivered.toLocaleString();
+      document.getElementById('statTotalDispatched').innerText = totalDispatched.toLocaleString();
+      document.getElementById('statTotalBuffer').innerText = totalBuffer.toLocaleString();
+      document.getElementById('statTotalRecords').innerText = filtered.length;
+      document.getElementById('statFulfillmentRate').innerText = `${fulfillmentRate}% Fulfilled`;
+      document.getElementById('statActiveCycles').innerText = selectedCycle === 'ALL' ? 'Across all cycles' : `Cycle: ${selectedCycle}`;
+
+      // Counts & Summaries
+      document.getElementById('filteredCount').innerText = filtered.length;
+      document.getElementById('totalCount').innerText = campaignData.length;
+      document.getElementById('filteredSum').innerText = `Delivered: ${totalDelivered.toLocaleString()} | Buffer: ${totalBuffer.toLocaleString()}`;
+
+      // 2. Render Charts
+      renderCharts(filtered, totalDispatched, totalBuffer);
+
+      // 3. Render Desktop Table & Mobile Cards
+      renderViewItems(sorted);
+
+      lucide.createIcons();
+    }
+
+    // Render Table and Mobile Cards
+    function renderViewItems(items) {
+      const tableBody = document.getElementById('tableBody');
+      const mobileList = document.getElementById('mobileCardList');
+      const emptyState = document.getElementById('emptyState');
+
+      if (items.length === 0) {
+        tableBody.innerHTML = '';
+        mobileList.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        document.getElementById('pageIndicator').innerText = 'Page 0 of 0';
+        return;
+      }
+      emptyState.classList.add('hidden');
+
+      // Pagination Calculation
+      const actualPageSize = pageSize === 'all' ? items.length : parseInt(pageSize);
+      const totalPages = Math.ceil(items.length / actualPageSize) || 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+
+      const startIndex = (currentPage - 1) * actualPageSize;
+      const paginatedItems = items.slice(startIndex, startIndex + actualPageSize);
+
+      document.getElementById('pageIndicator').innerText = `Page ${currentPage} of ${totalPages}`;
+      document.getElementById('prevBtn').disabled = currentPage <= 1;
+      document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+
+      // Render Desktop Rows
+      tableBody.innerHTML = paginatedItems.map(item => {
+        const delivered = Number(item.delivered) || 0;
+        const dispatched = Number(item.dispatched) || 0;
+        const buffer = Number(item.buffer) || 0;
+        const rate = delivered > 0 ? Math.round((dispatched / delivered) * 100) : 0;
+
+        let badgeColor = 'bg-slate-100 text-slate-700';
+        if (rate >= 100) badgeColor = 'bg-emerald-50 text-emerald-700 font-semibold';
+        else if (rate > 0) badgeColor = 'bg-blue-50 text-blue-700 font-semibold';
+        else badgeColor = 'bg-amber-50 text-amber-700';
+
+        const cycleLabel = item.cycle ? item.cycle : 'Buffer';
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition group">
+            <td class="py-3 px-4 font-semibold text-slate-500 whitespace-nowrap">
+              <span class="px-2 py-0.5 rounded text-xs bg-slate-100 border border-slate-200">${cycleLabel}</span>
+            </td>
+            <td class="py-3 px-4 font-semibold text-slate-900">${escapeHtml(item.campaign || '—')}</td>
+            <td class="py-3 px-4 text-slate-600 whitespace-nowrap">
+              <span class="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">${escapeHtml(item.article || '—')}</span>
+            </td>
+            <td class="py-3 px-4 text-right font-medium text-slate-800">${delivered.toLocaleString()}</td>
+            <td class="py-3 px-4 text-right font-bold text-indigo-600">${dispatched.toLocaleString()}</td>
+            <td class="py-3 px-4 text-right font-semibold text-amber-600">${buffer.toLocaleString()}</td>
+            <td class="py-3 px-4">
+              <div class="flex items-center space-x-2">
+                <div class="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                  <div class="bg-blue-600 h-1.5 rounded-full" style="width: ${Math.min(rate, 100)}%"></div>
+                </div>
+                <span class="text-[11px] px-1.5 py-0.5 rounded ${badgeColor}">${rate}%</span>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-xs text-slate-500 max-w-xs truncate" title="${escapeHtml(item.remarks || '')}">
+              ${item.remarks ? `<span class="text-blue-600 inline-flex items-center"><i data-lucide="info" class="w-3.5 h-3.5 mr-1 inline"></i>${escapeHtml(item.remarks)}</span>` : '—'}
+            </td>
+            <td class="py-3 px-4 text-center whitespace-nowrap">
+              <div class="flex items-center justify-center space-x-1">
+                <button onclick="openEditModal('${item.id}')" title="Edit this item" class="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition">
+                  <i data-lucide="edit-3" class="w-4 h-4"></i>
+                </button>
+                <button onclick="promptDeleteItem('${item.id}')" title="Delete" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // Render Mobile Card List (< 768px)
+      mobileList.innerHTML = paginatedItems.map(item => {
+        const delivered = Number(item.delivered) || 0;
+        const dispatched = Number(item.dispatched) || 0;
+        const buffer = Number(item.buffer) || 0;
+        const rate = delivered > 0 ? Math.round((dispatched / delivered) * 100) : 0;
+        const cycleLabel = item.cycle ? item.cycle : 'Buffer';
+
+        return `
+          <div class="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-xs space-y-3">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="flex items-center space-x-1.5 mb-1">
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">${cycleLabel}</span>
+                  <span class="text-[10px] font-medium px-2 py-0.5 rounded-md bg-blue-50 text-blue-700">${escapeHtml(item.article)}</span>
+                </div>
+                <h4 class="text-sm font-bold text-slate-900 leading-tight">${escapeHtml(item.campaign)}</h4>
+              </div>
+              <span class="text-xs font-bold px-2 py-0.5 rounded-full ${rate >= 100 ? 'bg-emerald-100 text-emerald-800' : (rate > 0 ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800')}">
+                ${rate}%
+              </span>
+            </div>
+
+            <!-- Numbers Grid -->
+            <div class="grid grid-cols-3 gap-2 text-center">
+              <div class="bg-slate-50 p-2 rounded-xl">
+                <span class="block text-[10px] text-slate-400 font-semibold uppercase">Delivered</span>
+                <span class="text-xs font-bold text-slate-800">${delivered.toLocaleString()}</span>
+              </div>
+              <div class="bg-indigo-50/60 p-2 rounded-xl">
+                <span class="block text-[10px] text-indigo-400 font-semibold uppercase">Dispatched</span>
+                <span class="text-xs font-bold text-indigo-700">${dispatched.toLocaleString()}</span>
+              </div>
+              <div class="bg-amber-50/60 p-2 rounded-xl">
+                <span class="block text-[10px] text-amber-500 font-semibold uppercase">Buffer</span>
+                <span class="text-xs font-bold text-amber-700">${buffer.toLocaleString()}</span>
+              </div>
+            </div>
+
+            ${item.remarks ? `
+              <div class="text-[11px] text-blue-700 bg-blue-50/70 p-2 rounded-xl flex items-center">
+                <i data-lucide="message-square" class="w-3.5 h-3.5 mr-1.5 shrink-0"></i>
+                <span class="truncate">${escapeHtml(item.remarks)}</span>
+              </div>
+            ` : ''}
+
+            <!-- Card Actions -->
+            <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button onclick="promptDeleteItem('${item.id}')" class="px-2.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg font-medium transition flex items-center space-x-1">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <span>Delete</span>
+              </button>
+              <button onclick="openEditModal('${item.id}')" class="px-3.5 py-1.5 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg font-bold transition flex items-center space-x-1">
+                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                <span>Edit Item</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Charts Rendering
+    function renderCharts(items, dispatched, buffer) {
+      // 1. Doughnut Chart
+      const doughnutCtx = document.getElementById('fulfillmentDoughnutChart').getContext('2d');
+      if (doughnutChartInstance) doughnutChartInstance.destroy();
+
+      doughnutChartInstance = new Chart(doughnutCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Dispatched', 'On Hand / Buffer'],
+          datasets: [{
+            data: [dispatched, buffer],
+            backgroundColor: ['#3b82f6', '#f59e0b'],
+            borderWidth: 0,
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const val = context.parsed;
+                  const total = dispatched + buffer;
+                  const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                  return ` ${context.label}: ${val.toLocaleString()} (${pct}%)`;
+                }
+              }
+            }
+          },
+          cutout: '72%'
+        }
+      });
+
+      // 2. Bar Chart
+      const articleMap = {};
+      items.forEach(d => {
+        const art = d.article || 'Other';
+        if (!articleMap[art]) articleMap[art] = { delivered: 0, dispatched: 0, buffer: 0 };
+        articleMap[art].delivered += (Number(d.delivered) || 0);
+        articleMap[art].dispatched += (Number(d.dispatched) || 0);
+        articleMap[art].buffer += (Number(d.buffer) || 0);
+      });
+
+      const topArticles = Object.entries(articleMap)
+        .sort((a, b) => b[1].delivered - a[1].delivered)
+        .slice(0, 6);
+
+      const labels = topArticles.map(a => a[0]);
+      const dispData = topArticles.map(a => a[1].dispatched);
+      const buffData = topArticles.map(a => a[1].buffer);
+
+      const barCtx = document.getElementById('materialsChart').getContext('2d');
+      if (materialsChartInstance) materialsChartInstance.destroy();
+
+      materialsChartInstance = new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Dispatched',
+              data: dispData,
+              backgroundColor: '#3b82f6',
+              borderRadius: 6
+            },
+            {
+              label: 'Buffer Stock',
+              data: buffData,
+              backgroundColor: '#cbd5e1',
+              borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+            y: { stacked: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } }
+          },
+          plugins: {
+            legend: { position: 'top', align: 'end', labels: { boxWidth: 12, font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+    // EDIT / ADD MODAL CONTROLS
+    function openEditModal(itemId) {
+      const modal = document.getElementById('editModal');
+      const modalTitle = document.getElementById('modalTitle');
+      const deleteBtn = document.getElementById('btnDeleteInModal');
+      const form = document.getElementById('editItemForm');
+
+      form.reset();
+      document.getElementById('autoCalcBuffer').checked = true;
+
+      if (itemId) {
+        // Edit existing
+        const item = campaignData.find(d => d.id === itemId);
+        if (!item) return;
+
+        modalTitle.innerText = "Edit Campaign Item";
+        document.getElementById('editItemId').value = item.id;
+        document.getElementById('fieldCycle').value = item.cycle || '';
+        document.getElementById('fieldCampaign').value = item.campaign || '';
+        document.getElementById('fieldArticle').value = item.article || '';
+        document.getElementById('fieldDelivered').value = item.delivered ?? 0;
+        document.getElementById('fieldDispatched').value = item.dispatched ?? 0;
+        document.getElementById('fieldBuffer').value = item.buffer ?? 0;
+        document.getElementById('fieldRemarks').value = item.remarks || '';
+        deleteBtn.classList.remove('hidden');
+      } else {
+        // Add new
+        modalTitle.innerText = "Add New Campaign Item";
+        document.getElementById('editItemId').value = "";
+        document.getElementById('fieldCycle').value = selectedCycle !== 'ALL' ? selectedCycle : '22';
+        document.getElementById('fieldDelivered').value = "0";
+        document.getElementById('fieldDispatched').value = "0";
+        document.getElementById('fieldBuffer').value = "0";
+        deleteBtn.classList.add('hidden');
+      }
+
+      modal.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      lucide.createIcons();
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModal').classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+
+    // Auto Calculation Logic
+    function handleQuantityChange() {
+      const isAuto = document.getElementById('autoCalcBuffer').checked;
+      if (!isAuto) return;
+
+      const del = parseFloat(document.getElementById('fieldDelivered').value) || 0;
+      const disp = parseFloat(document.getElementById('fieldDispatched').value) || 0;
+      const buffer = Math.max(0, del - disp);
+      document.getElementById('fieldBuffer').value = buffer;
+    }
+
+    function handleAutoCalcToggle() {
+      const isAuto = document.getElementById('autoCalcBuffer').checked;
+      const bufferInput = document.getElementById('fieldBuffer');
+      if (isAuto) {
+        handleQuantityChange();
+        bufferInput.classList.remove('ring-2', 'ring-amber-500');
+      } else {
+        bufferInput.focus();
+      }
+    }
+
+    // Save Form (Create or Update)
+    function saveItemForm(e) {
+      e.preventDefault();
+      const id = document.getElementById('editItemId').value;
+      const cycle = document.getElementById('fieldCycle').value.trim() || 'Buffer';
+      const campaign = document.getElementById('fieldCampaign').value.trim();
+      const article = document.getElementById('fieldArticle').value.trim();
+      const delivered = parseFloat(document.getElementById('fieldDelivered').value) || 0;
+      const dispatched = parseFloat(document.getElementById('fieldDispatched').value) || 0;
+      const buffer = parseFloat(document.getElementById('fieldBuffer').value) || 0;
+      const remarks = document.getElementById('fieldRemarks').value.trim();
+
+      if (!campaign || !article) {
+        showToast('Campaign and Article are required fields', 'danger');
+        return;
+      }
+
+      if (id) {
+        // Update existing record
+        const index = campaignData.findIndex(d => d.id === id);
+        if (index !== -1) {
+          campaignData[index] = {
+            ...campaignData[index],
+            cycle,
+            campaign,
+            article,
+            delivered,
+            dispatched,
+            buffer,
+            remarks
+          };
+          showToast(`Updated "${campaign}" successfully`, 'success');
+        }
+      } else {
+        // Create new record
+        const newItem = {
+          id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+          cycle,
+          campaign,
+          article,
+          delivered,
+          dispatched,
+          buffer,
+          remarks
+        };
+        campaignData.unshift(newItem);
+        showToast(`Added "${campaign}" successfully`, 'success');
+      }
+
+      saveDataLocally();
+      updateArticleDropdowns();
+      renderCyclePills();
+      updateDashboard();
+      closeEditModal();
+    }
+
+    // Delete Operations (Modal based)
+    function promptDeleteItem(id) {
+      const item = campaignData.find(d => d.id === id);
+      if (!item) return;
+
+      deleteTargetId = id;
+      document.getElementById('deleteModalMsg').innerText = `Are you sure you want to delete "${item.campaign} (${item.article})"?`;
+      document.getElementById('confirmDeleteBtn').onclick = executeDelete;
+      document.getElementById('deleteModal').classList.remove('hidden');
+    }
+
+    function deleteItemFromModal() {
+      const id = document.getElementById('editItemId').value;
+      if (!id) return;
+      closeEditModal();
+      promptDeleteItem(id);
+    }
+
+    function executeDelete() {
+      if (!deleteTargetId) return;
+      campaignData = campaignData.filter(d => d.id !== deleteTargetId);
+      saveDataLocally();
+      updateArticleDropdowns();
+      renderCyclePills();
+      updateDashboard();
+      closeDeleteModal();
+      showToast('Item deleted', 'danger');
+      deleteTargetId = null;
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('deleteModal').classList.add('hidden');
+      deleteTargetId = null;
+    }
+
+    // Reset Data to Default CSV
+    function resetToDefaultData() {
+      closeActionMenu();
+      campaignData = JSON.parse(JSON.stringify(DEFAULT_DATASET));
+      saveDataLocally();
+      updateArticleDropdowns();
+      renderCyclePills();
+      resetFilters();
+      showToast('Reset to original dataset', 'info');
+    }
+
+    // Action Dropdown Menu Toggle
+    function toggleActionMenu() {
+      const menu = document.getElementById('actionDropdown');
+      menu.classList.toggle('hidden');
+    }
+    function closeActionMenu() {
+      document.getElementById('actionDropdown').classList.add('hidden');
+    }
+    document.addEventListener('click', (e) => {
+      const btn = document.getElementById('menuBtn');
+      const menu = document.getElementById('actionDropdown');
+      if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+        closeActionMenu();
+      }
+    });
+
+    // Pagination handlers
+    function prevPage() {
+      if (currentPage > 1) {
+        currentPage--;
+        updateDashboard();
+      }
+    }
+    function nextPage() {
+      currentPage++;
+      updateDashboard();
+    }
+    function changePageSize(val) {
+      pageSize = val;
+      currentPage = 1;
+      updateDashboard();
+    }
+
+    // Filter Listeners
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      searchQuery = e.target.value;
+      currentPage = 1;
+      updateDashboard();
+    });
+
+    document.getElementById('articleFilter').addEventListener('change', (e) => {
+      selectedArticle = e.target.value;
+      currentPage = 1;
+      updateDashboard();
+    });
+
+    document.getElementById('statusFilter').addEventListener('change', (e) => {
+      selectedStatus = e.target.value;
+      currentPage = 1;
+      updateDashboard();
+    });
+
+    function resetFilters() {
+      selectedCycle = 'ALL';
+      searchQuery = '';
+      selectedArticle = '';
+      selectedStatus = '';
+      document.getElementById('searchInput').value = '';
+      document.getElementById('articleFilter').value = '';
+      document.getElementById('statusFilter').value = '';
+      renderCyclePills();
+      updateDashboard();
+    }
+
+    // CSV File Import / Uploader
+    function initCSVUploader() {
+      const fileInput = document.getElementById('csvFileInput');
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: function(results) {
+            if (results.data && results.data.length > 0) {
+              const parsed = [];
+              results.data.forEach((row, i) => {
+                const cycle = row['Cycle'] || row['cycle'] || '';
+                const campaign = row['CAMPAIGN'] || row['Campaign'] || row['campaign'] || '';
+                const article = row['ARTICLE'] || row['Article'] || row['article'] || '';
+                const delivered = parseFloat((row['DELIVERY FROM SUPPLIER'] || row['Delivered'] || row['delivered'] || '0').toString().replace(/,/g, '')) || 0;
+                const dispatched = parseFloat((row['ALLOCATED / DISPATCHED'] || row['Dispatched'] || row['dispatched'] || '0').toString().replace(/,/g, '')) || 0;
+                const buffer = parseFloat((row['BUFFER / ON HAND'] || row['Buffer'] || row['buffer'] || '0').toString().replace(/,/g, '')) || (delivered - dispatched);
+                const remarks = row['REMARKS'] || row['Remarks'] || row['remarks'] || '';
+
+                if (campaign || article) {
+                  parsed.push({
+                    id: 'imp_' + Date.now() + '_' + i,
+                    cycle: cycle.trim() || 'Buffer',
+                    campaign: campaign.trim(),
+                    article: article.trim(),
+                    delivered,
+                    dispatched,
+                    buffer,
+                    remarks: remarks.trim()
+                  });
+                }
+              });
+
+              if (parsed.length > 0) {
+                campaignData = parsed;
+                saveDataLocally();
+                updateArticleDropdowns();
+                renderCyclePills();
+                resetFilters();
+                showToast(`Imported ${parsed.length} rows successfully`, 'success');
+              } else {
+                showToast('No recognizable data found in CSV', 'danger');
+              }
+            }
+          },
+          error: function(err) {
+            showToast('CSV parsing error', 'danger');
+          }
+        });
+        fileInput.value = '';
+      });
+    }
+
+    // CSV Export
+    function exportData() {
+      const filtered = getFilteredData();
+      let csv = "Cycle,Campaign,Article,Delivery From Supplier,Allocated / Dispatched,Buffer / On Hand,Remarks\n";
+      
+      filtered.forEach(row => {
+        const c = `"${(row.cycle || 'Buffer').replace(/"/g, '""')}"`;
+        const cmp = `"${(row.campaign || '').replace(/"/g, '""')}"`;
+        const a = `"${(row.article || '').replace(/"/g, '""')}"`;
+        const rem = `"${(row.remarks || '').replace(/"/g, '""')}"`;
+        csv += `${c},${cmp},${a},${row.delivered},${row.dispatched},${row.buffer},${rem}\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Campaign_Materials_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Export file generated', 'success');
+    }
+
+    // Utility: HTML Escaper to prevent XSS
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // Keyboard Shortcuts (Esc to close modals)
+    function initKeyboardEscape() {
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeEditModal();
+          closeDeleteModal();
+          closeActionMenu();
+        }
+      });
+    }
+  </script>
+</body>
+</html>
